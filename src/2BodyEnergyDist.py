@@ -19,6 +19,7 @@ from data_gen_1d import genDataYukawaPer
 from neighbor_list import computInterListOpt
 from networks import DeepMDsimpleEnergy
 from utilities import genCoordinates
+from utilities import trainEnergy
 
 
 import os
@@ -191,9 +192,9 @@ std = torch.stack([torch.std(dist[dist>0]),
 
 print("building the model")
 # building the model 
-# model = DeepMDsimpleEnergy(Npoints, lengthCell, maxNumNeighs,
-#                            filterNet, fittingNet, True,
-#                            ave, std).to(device)
+model = DeepMDsimpleEnergy(Npoints, lengthCell, maxNumNeighs,
+                           filterNet, fittingNet, True,
+                           ave, std).to(device)
 
 model = torch.jit.script(DeepMDsimpleEnergy(Npoints, lengthCell, maxNumNeighs,
                            filterNet, fittingNet, True,
@@ -207,41 +208,43 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 # TODO add the custom training procedure
 
-for epoch in range(1, Nepochs+1):
-    # monitor training loss
-    train_loss = 0.0
-    model.train()
-    ###################
-    # train the model #
-    ###################
-    for pos, energy in dataloaderTrain:
+trainEnergy(model, optimizer, 
+            criterion, dataloaderTrain, Nepochs, Lcell*Ncells,radious, maxNumNeighs, device)
+# for epoch in range(1, Nepochs+1):
+#     # monitor training loss
+#     train_loss = 0.0
+#     model.train()
+#     ###################
+#     # train the model #
+#     ###################
+#     for pos, energy in dataloaderTrain:
 
-        # computing the interaction list (via numba)
-        neighbor_list = computInterListOpt(pos.numpy(), Lcell*Ncells,  
-                                            radious, maxNumNeighs)
-        # moving list to pytorch and moving to device
-        neighbor_list = torch.tensor(neighbor_list).to(device)
-        #send to the device (either cpu or gpu)
-        pos, energy = pos.to(device), energy.to(device)
-        # clear the gradients of all optimized variables
-        optimizer.zero_grad()
-        # forward pass: compute predicted outputs by passing inputs to the model
-        energyNN = model(pos, neighbor_list)
-        # calculate the loss
-        loss = criterion(energyNN, energy)
-        # backward pass: compute gradient of the loss with respect to model parameters
-        loss.backward()
-        # perform a single optimization step (parameter update)
-        optimizer.step()
-        # update running training loss
-        train_loss += loss.item()
+#         # computing the interaction list (via numba)
+#         neighbor_list = computInterListOpt(pos.numpy(), Lcell*Ncells,  
+#                                             radious, maxNumNeighs)
+#         # moving list to pytorch and moving to device
+#         neighbor_list = torch.tensor(neighbor_list).to(device)
+#         #send to the device (either cpu or gpu)
+#         pos, energy = pos.to(device), energy.to(device)
+#         # clear the gradients of all optimized variables
+#         optimizer.zero_grad()
+#         # forward pass: compute predicted outputs by passing inputs to the model
+#         energyNN = model(pos, neighbor_list)
+#         # calculate the loss
+#         loss = criterion(energyNN, energy)
+#         # backward pass: compute gradient of the loss with respect to model parameters
+#         loss.backward()
+#         # perform a single optimization step (parameter update)
+#         optimizer.step()
+#         # update running training loss
+#         train_loss += loss.item()
             
-    # print avg training statistics 
-    train_loss = train_loss/len(dataloaderTrain)
-    print('Epoch: {} \tTraining Loss: {:.6f}'.format(
-        epoch, 
-        train_loss
-        ), flush=True)
+#     # print avg training statistics 
+#     train_loss = train_loss/len(dataloaderTrain)
+#     print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+#         epoch, 
+#         train_loss
+#         ), flush=True)
 
 
 

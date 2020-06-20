@@ -1,6 +1,6 @@
 import torch
 import numpy as np 
-
+from neighbor_list import computInterListOpt
 # def genCoordinates(pos : torch.Tensor, 
 # 				   neighborList: torch.Tensor, 
 # 				   L : torch.Tensor, 
@@ -54,4 +54,46 @@ def genCoordinates(pos : torch.Tensor,
 	DistInv = torch.where(mask, zeroDummy, DistInv) 
 
 	return (Dist, DistInv)
+
+
+def trainEnergy(model, optimizer, criterion, 
+				dataloaderTrain, Nepochs, 
+				L,radious, maxNumNeighs, device):
+	print("Entering the training Stage")
+	
+	for epoch in range(1, Nepochs+1):
+	  # monitor training loss
+	  train_loss = 0.0
+	  model.train()
+	  ###################
+	  # train the model #
+	  ###################
+	  for pos, energy in dataloaderTrain:
+	
+	    # computing the interaction list (via numba)
+	    neighbor_list = computInterListOpt(pos.numpy(), L,  
+	                                        radious, maxNumNeighs)
+	    # moving list to pytorch and moving to device
+	    neighbor_list = torch.tensor(neighbor_list).to(device)
+	    #send to the device (either cpu or gpu)
+	    pos, energy = pos.to(device), energy.to(device)
+	    # clear the gradients of all optimized variables
+	    optimizer.zero_grad()
+	    # forward pass: compute predicted outputs by passing inputs to the model
+	    energyNN = model(pos, neighbor_list)
+	    # calculate the loss
+	    loss = criterion(energyNN, energy)
+	    # backward pass: compute gradient of the loss with respect to model parameters
+	    loss.backward()
+	    # perform a single optimization step (parameter update)
+	    optimizer.step()
+	    # update running training loss
+	    train_loss += loss.item()
+	            
+	  # print avg training statistics 
+	  train_loss = train_loss/len(dataloaderTrain)
+	  print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+	      epoch, 
+	      train_loss
+	      ), flush=True)
 

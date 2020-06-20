@@ -68,7 +68,7 @@ class DeepMDsimpleEnergy(torch.nn.Module):
 
   def __init__(self,
                Npoints,
-               length,
+               length: torch.Tensor, # we need it to be a tensor
                maxNumNeighs = 4,
                descripDim = [1, 2, 4, 8, 16, 32],
                fittingDim = [16, 8, 4, 2, 1],
