@@ -107,7 +107,7 @@ class DeepMDsimpleEnergy(torch.nn.Module):
     self.linfitNet      = torch.nn.Linear(fittingDim[-1], 1)    
 
 
-  def forward(self, inputs, neighList):
+  def forward(self, inputs: torch.Tensor, neighList: torch.Tensor):
       # we watch the inputs 
 
     # in this case we are only considering the distances
@@ -121,12 +121,12 @@ class DeepMDsimpleEnergy(torch.nn.Module):
     # (Nsamples*Npoints*maxNumNeighs, descriptorDim)
     L2   = self.layerPyramidInv(distInv.view(-1,1))*distInv.view(-1,1)
     # (Nsamples*Npoints*maxNumNeighs, descriptorDim)
-    LL = torch.cat([L1, L2], axis = 1)
+    LL = torch.cat((L1, L2), dim = 1)
     # (Nsamples*Npoints*maxNumNeighs, 2*descriptorDim)
     Dtemp = LL.view(-1, self.maxNumNeighs, 
                         2*self.descriptorDim)
     # (Nsamples*Npoints, maxNumNeighs, descriptorDim)
-    D = torch.sum(Dtemp, axis = 1)
+    D = torch.sum(Dtemp, dim = 1)
     # (Nsamples*Npoints, descriptorDim)
 
     F2 = self.fittingNetwork(D)

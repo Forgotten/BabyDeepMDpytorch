@@ -174,7 +174,7 @@ neighbor_list = computInterListOpt(pointsnumpy, Lcell*Ncells,
 neighbor_list = torch.tensor(neighbor_list)
 
 (dist, distInv) = genCoordinates(pointsArrayTorchSmall, 
-                                  neighbor_list, Lcell*Ncells)
+                                  neighbor_list, lengthCell)
 
 # we compute the mean and std (only the positive values)
 # given that the zero values are just padding. 
@@ -189,10 +189,15 @@ std = torch.stack([torch.std(dist[dist>0]),
 # ave = torch.tensor([0.0, 0.0], dtype=torch.float32)
 # std = torch.tensor([1.0, 1.0], dtype=torch.float32)
 
+print("building the model")
 # building the model 
-model = DeepMDsimpleEnergy(Npoints, lengthCell, maxNumNeighs,
+# model = DeepMDsimpleEnergy(Npoints, lengthCell, maxNumNeighs,
+#                            filterNet, fittingNet, True,
+#                            ave, std).to(device)
+
+model = torch.jit.script(DeepMDsimpleEnergy(Npoints, lengthCell, maxNumNeighs,
                            filterNet, fittingNet, True,
-                           ave, std).to(device)
+                           ave, std)).to(device)
 
 # specify loss function
 criterion = torch.nn.MSELoss(reduction='mean')
@@ -237,3 +242,9 @@ for epoch in range(1, Nepochs+1):
         epoch, 
         train_loss
         ), flush=True)
+
+
+
+#### tests
+
+
