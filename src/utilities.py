@@ -11,23 +11,15 @@ def genCoordinates(pos, neighborList, L, ave = torch.tensor([0.0, 0.0], dtype=to
 	assert pos.size()[0] == Nsamples
 	assert pos.size()[1] == Npoints
 
-	# we alocate the distance tensor
-	Dist = torch.tensor(np.zeros((Nsamples, Npoints, maxNumNeighs)), 
-					    dtype= torch.float32, 
-					    device = pos.device) 
-	# we alocate the inverse distance tensor
-	DistInv = torch.tensor(np.zeros((Nsamples, Npoints, maxNumNeighs)), 
-						   dtype= torch.float32, 
-						   device = pos.device) 
-
-	# nested loop (this needs to be properly vectorized)
-	for ii in range(Nsamples):
-		for jj in range(Npoints):
-			for kk in range(maxNumNeighs):
-				if neighborList[ii,jj,kk]!= -1: 
-					temp = pos[ii,neighborList[ii,jj,kk]] - pos[ii,jj]
-					tempL = temp - L*torch.round(temp/L)
-					Dist[ii, jj, kk] =  (torch.abs(tempL) - ave[0])/std[0]
-					DistInv[ii, jj, kk] = (1/(torch.abs(tempL))- ave[1])/std[1]
+	mask = (neighborList == -1)
+	# change the neighbor (because of -1 can not index)
+	neighborList[mask] = 0
+	temp = pos.unsqueeze(-1).repeat(1,1, neighborList.shape[-1])
+	temp = torch.gather(temp, 1, neighborList) - temp
+	tempL = temp - L*torch.round(temp/L)
+	Dist = (torch.abs(tempL) - ave[0])/std[0]
+	DistInv = (1/(torch.abs(tempL))- ave[1])/std[1]
+	Dist[mask] = 0.0
+	DistInv[mask] = 0.0
 
 	return (Dist, DistInv)
