@@ -23,6 +23,7 @@ def computInterListOpt(Rinnumpy, L,  radious, maxNumNeighs):
 
   # add the padding and loop over the indices 
   Idx = np.zeros((Nsamples, Npoints, maxNumNeighs), dtype=np.int32) -1 
+  
   for ii in range(0,Nsamples):
     for jj in range(0, Npoints):
       ll = 0 

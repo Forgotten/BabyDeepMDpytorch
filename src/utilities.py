@@ -1,37 +1,13 @@
 import torch
 import numpy as np 
 from neighbor_list import computInterListOpt
-# def genCoordinates(pos : torch.Tensor, 
-# 				   neighborList: torch.Tensor, 
-# 				   L : torch.Tensor, 
-# 				   ave = torch.tensor([0.0, 0.0], dtype=torch.float32), 
-# 				   std = torch.tensor([1.0, 1.0], dtype=torch.float32)):
-
-# 	# extracting the size information 
-# 	Nsamples, Npoints, maxNumNeighs = neighborList.size()
-
-# 	assert pos.size()[0] == Nsamples
-# 	assert pos.size()[1] == Npoints
-
-# 	mask = (neighborList == -1)
-# 	# change the neighbor (because of -1 can not index)
-# 	neighborList[mask] = 0
-# 	temp = pos.unsqueeze(-1).repeat(1,1, neighborList.shape[-1])
-# 	temp = torch.gather(temp, 1, neighborList) - temp
-# 	tempL = temp - L*torch.round(temp/L)
-# 	Dist = (torch.abs(tempL) - ave[0])/std[0]
-# 	DistInv = (1/(torch.abs(tempL))- ave[1])/std[1]
-
-# 	Dist[mask] = 0.0
-# 	DistInv[mask] = 0.0
-
-# 	return (Dist, DistInv)
+import time 
 
 @torch.jit.script
 def genCoordinates(pos : torch.Tensor, 
-				   	  neighborList: torch.Tensor, 
-				      L : torch.Tensor, 
-				      ave = torch.tensor([0.0, 0.0], dtype=torch.float32), 
+				   neighborList: torch.Tensor, 
+				   L : torch.Tensor, 
+				   ave = torch.tensor([0.0, 0.0], dtype=torch.float32), 
 				   std = torch.tensor([1.0, 1.0], dtype=torch.float32)):
 
 	# extracting the size information 
@@ -42,14 +18,21 @@ def genCoordinates(pos : torch.Tensor,
 
 	mask = (neighborList == -1)
 	# change the neighbor (because of -1 can not index)
-	neighborList *= (1 - mask.int())
-	temp = pos.unsqueeze(-1).repeat(1,1, neighborList.shape[-1])
-	temp = torch.gather(temp, 1, neighborList) - temp
+	# we create a new temporal neighbor list 
+	# otherwise we modify neighborList outside the scope 
+	# of this function
+	neighborListTemp = neighborList*(1 - mask.int())
+
+	zeroDummy = torch.zeros_like(neighborList, dtype=torch.float32)
+
+	temp = pos.unsqueeze(-1).repeat(1,1, neighborListTemp.shape[-1])
+	temp2 = torch.gather(temp, 1, neighborListTemp)  
+	temp2Filtered = torch.where(mask, zeroDummy, temp2) 
+	temp = temp2Filtered - temp
 	tempL = temp - L*torch.round(temp/L)
 	Dist = (torch.abs(tempL) - ave[0])/std[0]
-	DistInv = (1/(torch.abs(tempL))- ave[1])/std[1]
+	DistInv = (1./(torch.abs(tempL))- ave[1])/std[1]
 
-	zeroDummy = torch.zeros_like(Dist)
 	Dist = torch.where(mask, zeroDummy, Dist) 
 	DistInv = torch.where(mask, zeroDummy, DistInv) 
 
@@ -65,6 +48,9 @@ def trainEnergy(model, optimizer, criterion,
 	  # monitor training loss
 	  train_loss = 0.0
 	  model.train()
+
+	  # monitoring time elapsed
+	  start = time.time()
 	  ###################
 	  # train the model #
 	  ###################
@@ -90,10 +76,12 @@ def trainEnergy(model, optimizer, criterion,
 	    # update running training loss
 	    train_loss += loss.item()
 	            
+	  # monitoring the elapsed time          
+	  end = time.time()
 	  # print avg training statistics 
 	  train_loss = train_loss/len(dataloaderTrain)
-	  print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+	  print('Epoch: {} \tTraining Loss: {:.10f} \t Time per epoch: {:.3f} [s]'.format(
 	      epoch, 
-	      train_loss
+	      train_loss, end-start
 	      ), flush=True)
 
