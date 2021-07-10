@@ -124,8 +124,11 @@ def comput_inter_list(r_in_numpy, L, radious, max_num_neighs):
 # optimized function fo compute the distance
 # TODO: use scikit-learn KD tree to optimize this one 
 @jit(nopython=True)
-def comput_inter_list_type(r_in_numpy, atom_type, L, radious, max_num_neighs_type):
+def comput_inter_list_type(r_in_numpy, atom_type, 
+                           L, radious, max_num_neighs_type):
   # TODO: add documentation
+  # r_in_numpy (n_samples, n_points, dims)
+  # atom_type  (n_samples, n_points )
   # function to compute the interaction lists 
   # atom type is an array with integer entries
   # this function in agnostic to the dimension of the data.
@@ -158,11 +161,11 @@ def comput_inter_list_type(r_in_numpy, atom_type, L, radious, max_num_neighs_typ
         if jj!= kk and np.abs(dist_numpy[ii,jj,kk]) < radious:
           # checking that we are not going over the max number of
           # neighboors, if so we break the loop
-          if ll[atom_type[kk]] >= max_num_neighs_type[atom_type[kk]]:
+          if ll[atom_type[ii,kk]] >= max_num_neighs_type[atom_type[ii,kk]]:
             print("Number of neighboors is larger than the max number allowed")
             continue
           
-          Idx[ii,jj,ll[atom_type[kk]]+indx[atom_type[kk]]] = kk
-          ll[atom_type[kk]] += 1 
+          Idx[ii,jj,ll[atom_type[ii,kk]]+indx[atom_type[ii,kk]]] = kk
+          ll[atom_type[ii,kk]] += 1 
 
   return Idx

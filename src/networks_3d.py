@@ -246,8 +246,7 @@ class DeepMDsimpleEnergyForces(torch.nn.Module):
     fit = self.linfitNet(fit)
     # print(F1.size())
 
-    Energy = torch.sum(fit.view(-1, n_points), 
-                                dim=1, keepdim= True)
+    Energy = torch.sum(fit.view(-1, n_points), dim=1)
     
     (Forces,) = torch.autograd.grad(-torch.sum(Energy), 
                                      inputs, create_graph=True, 

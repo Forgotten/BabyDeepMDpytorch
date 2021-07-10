@@ -144,3 +144,63 @@ class DenseChainNet(nn.Module):
       else:
         x = tmp
     return x
+
+
+def trainEnergyForces(model, optimizer, criterion, 
+                      dataloaderTrain, n_epochs, 
+                      L, radious, max_num_neighs_type,
+                      weigths, device):
+  print("Entering the training Stage")
+  
+  # we need to modify the weights as we advance the simulation
+  weigths = weigths.to(device)
+
+  for epoch in range(1, n_epochs+1):
+    # monitor training loss
+    train_loss = 0.0
+    model.train()
+
+    # monitoring time elapsed
+    start = time.time()
+    ###################
+    # train the model #
+    ###################
+    for (pos, input_types), (energy, forces) in dataloaderTrain:
+  
+      # computing the interaction list (via numba)
+      neighbor_list = comput_inter_list_type(pos.numpy(), 
+                                             input_types.numpy(), 
+                                             L, radious, 
+                                             max_num_neighs_type)
+
+      # moving list to pytorch and moving to device
+      neighbor_list = torch.tensor(neighbor_list).to(device)
+      #send to the device (either cpu or gpu)
+      pos, energy, forces = pos.to(device),\
+                            energy.to(device),\
+                            forces.to(device)
+      # clear the gradients of all optimized variables
+      optimizer.zero_grad()
+      # forward pass: compute predicted outputs by passing inputs to the model
+      energyNN, forcesNN = model(pos, input_types, neighbor_list)
+      # calculate the Energy loss
+      lossE = criterion(energyNN, energy)
+      # calculate the Forces loss
+      lossF= criterion(forcesNN, forces)
+      # weigh the losses
+      loss = weigths[0]*lossE + weigths[1]*lossF
+      # backward pass: compute gradient of the loss with respect to model parameters
+      loss.backward()
+      # perform a single optimization step (parameter update)
+      optimizer.step()
+      # update running training loss
+      train_loss += loss.item()
+              
+    # monitoring the elapsed time          
+    end = time.time()
+    # print avg training statistics 
+    train_loss = train_loss/len(dataloaderTrain)
+    print('Epoch: {} \tTraining Loss: {:.10f} \t Time per epoch: {:.3f} [s]'.format(
+        epoch, 
+        train_loss, end-start
+        ), flush=True)
