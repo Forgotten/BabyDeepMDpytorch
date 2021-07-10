@@ -36,9 +36,7 @@ def smooth_cut_off(r:torch.Tensor, r_cs:torch.Tensor, r_c:torch.Tensor):
 @torch.jit.script
 def gen_coordinates(pos : torch.Tensor, 
                     neighborList : torch.Tensor, 
-                    L : torch.Tensor, 
-                    ave = torch.tensor([0.0], dtype=torch.float32), 
-                    std = torch.tensor([1.0], dtype=torch.float32)):
+                    L : torch.Tensor):
 
   # extracting the size information 
   n_snap, n_points, max_num_neighs = neighborList.size()
@@ -82,8 +80,8 @@ def gen_coordinates(pos : torch.Tensor,
   # carefull of divisions by zero
   DistInv = 1./Dist
 
-  Dist = torch.where(mask,zeroDummy_scalar, Dist) 
-  DistInv = torch.where(mask,zeroDummy_scalar, DistInv) 
+  Dist = torch.where(mask, zeroDummy_scalar, Dist) 
+  DistInv = torch.where(mask, zeroDummy_scalar, DistInv) 
 
   return (Dist, tempL*DistInv.unsqueeze(-1))
 
