@@ -9,7 +9,7 @@ import numpy as np
 from numba import jit 
 
 @jit(nopython=True)
-def computInterListOpt(Rinnumpy, L,  radious, maxNumNeighs):
+def computInterListOpt(Rinnumpy, L, radious, maxNumNeighs):
   Nsamples, Npoints = Rinnumpy.shape
 
   # computing the distance

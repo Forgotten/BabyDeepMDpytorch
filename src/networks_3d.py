@@ -18,7 +18,9 @@ class DescriptorModule(torch.nn.Module):
                resnet = False,
                cut_offs = [2., 3.],
                dim_sub_net = 16,
-               act_fn = F.relu, 
+               act_fn = F.relu,
+               with_weight_skip=False, 
+               with_batch_norm=False,
                av = torch.tensor([0.0, 0.0], dtype = torch.float32),
                std = torch.tensor([1.0, 1.0], dtype = torch.float32),
                **kwargs):
@@ -34,9 +36,11 @@ class DescriptorModule(torch.nn.Module):
         # each network is index by a string "ij"
         # we make the assumption that we have up to 10 species
         module_dict[str(atom_types[j])+
-                    str(atom_types[i])] = DenseChainNet(descrip_dim, 
-                                                        act_fn = act_fn,
-                                                        **kwargs)  
+                    str(atom_types[i])] = DenseChainNet(descrip_dim,
+                                                        act_fn,
+                                                        resnet, 
+                                                        with_weight_skip, 
+                                                        with_batch_norm)  
 
     # saving the dictionay on a moduledict object
     self.embed_nets = nn.ModuleDict(module_dict)
@@ -179,6 +183,8 @@ class DeepMDsimpleEnergyForces(torch.nn.Module):
                cut_offs = [2., 3.],
                dim_sub_net = 8,
                act_fn = F.relu, 
+               with_weight_skip=False, 
+               with_batch_norm=False,
                av = torch.tensor([0.0, 0.0], dtype = torch.float32),
                std = torch.tensor([1.0, 1.0], dtype = torch.float32),
                **kwargs):
@@ -219,8 +225,10 @@ class DeepMDsimpleEnergyForces(torch.nn.Module):
 
     
     self.fittingNetwork = DenseChainNet(fitting_dim, 
-                                        resnet=resnet, 
-                                        act_fn=act_fn)
+                                        act_fn,
+                                        resnet, 
+                                        with_weight_skip, 
+                                        with_batch_norm)
 
     self.linfitNet      = torch.nn.Linear(fitting_dim[-1], 1)    
 

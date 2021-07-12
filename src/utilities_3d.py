@@ -54,10 +54,12 @@ def gen_coordinates(pos : torch.Tensor,
   # of this function
   neighborListTemp = neighborList*(1 - mask.int())
 
-  zeroDummy = torch.zeros(n_snap, n_points, max_num_neighs, dim, dtype=torch.float32)
+  zeroDummy = torch.zeros(n_snap, n_points, 
+                          max_num_neighs, dim, dtype=torch.float32)
   # (n_snap, n_points, max_num_neighs, dim) 
 
-  zeroDummy_scalar = torch.zeros(n_snap, n_points, max_num_neighs, dtype=torch.float32)
+  zeroDummy_scalar = torch.zeros(n_snap, n_points, 
+                                 max_num_neighs, dtype=torch.float32)
   # (n_snap, n_points, max_num_neighs)
 
   temp = pos.unsqueeze(-2).repeat(1, 1, neighborListTemp.shape[-1], 1)
@@ -92,7 +94,7 @@ class DenseChainNet(nn.Module):
     
   def __init__(self, sizes, act_fn=torch.relu, 
                use_resnet=True, with_weight_skip=False, 
-               with_batch_norm=False, **kwargs):
+               with_batch_norm=False):
     super().__init__()
 
     self.act_fn = act_fn
@@ -112,6 +114,8 @@ class DenseChainNet(nn.Module):
     if self.with_batch_norm:
       self.batch_norm = nn.ModuleList([nn.BatchNorm1d(out_f) 
                                  for out_f in sizes[1:]])
+    else:
+      self.batch_norm = None
 
     if with_weight_skip:
       self.weight_skip = nn.ParameterList(
