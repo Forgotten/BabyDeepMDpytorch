@@ -31,6 +31,94 @@ def smooth_cut_off(r:torch.Tensor, r_cs:torch.Tensor, r_c:torch.Tensor):
 
   return s_final
 
+@torch.jit.script
+def stable_inverse(r:torch.Tensor):
+  #  todo: function to compute 1/r 
+
+  mask = (r == 0.)
+  zeroDummy = torch.zeros_like(r, dtype = torch.float32)
+
+  ## perform the computation
+
+  # remove the zeros to avoid taking the derivative of something too small
+  r_temp = torch.where(mask, zeroDummy, r)
+
+  # 1/r: compute the inverse
+  s_temp = 1./r_temp
+
+  # remove any possible Nan
+  s_final = torch.where(mask, zeroDummy, s_temp)
+
+  return s_final
+
+
+@torch.jit.script
+def gen_coordinates_smooth(pos : torch.Tensor, 
+                          neighborList : torch.Tensor, 
+                          L : torch.Tensor, 
+                          r_cs:torch.Tensor, 
+                          r_c:torch.Tensor):
+  # we fuse the computation of the generalized coordinates 
+  # with the application of the smooth cut-off, this should
+  # allow us for better performance (we only apply the mask once)
+
+  # extracting the size information 
+  n_snap, n_points, max_num_neighs = neighborList.size()
+
+  assert pos.size()[0] == n_snap
+  assert pos.size()[1] == n_points
+
+  # dimension of the input (should be 3D)
+  dim = pos.size()[2]
+
+  mask = (neighborList == -1)
+  # change the neighbor (because of -1 can not index)
+  # we create a new temporal neighbor list 
+  # otherwise we modify neighborList outside the scope 
+  # of this function
+  neighborListTemp = neighborList*(1 - mask.int())
+
+  temp = pos.unsqueeze(-2).repeat(1, 1, neighborListTemp.shape[-1], 1)
+  # (n_snap, n_points, max_num_neighs, dim)
+
+  zeroDummy = torch.zeros_like(temp)
+  # (n_snap, n_points, max_num_neighs, dim) (we keep the same device)
+
+  temp2 = torch.gather(temp, 1, 
+                       neighborListTemp.unsqueeze(-1).repeat(1,1,1,dim))
+  # (n_snap, n_points, max_num_neighs, dim) ? (not sure about the dimensions here)
+
+  temp2Filtered = torch.where(mask.unsqueeze(-1).repeat(1,1,1,dim), 
+                              zeroDummy, temp2)
+  # (n_snap, n_points, max_num_neighs, dim)
+
+  temp = temp2Filtered - temp
+  #(we are supposing that the super cell is a cube)
+  tempL = temp - L*torch.round(temp/L) 
+  
+  Dist = torch.sqrt(torch.sum(torch.square(tempL), dim = -1))
+  # (n_snap, n_points, max_num_neighs, 1)
+
+  # carefull of divisions by zero
+  DistInv = 1./Dist
+
+  # 1/r
+  s_temp = 1./DistInv
+  # 1.r*(0.5*cos(pi*(r - r_cs)/(r_c - r_cs) + 0.5)
+  s_temp2 =  torch.where( (Dist >= r_cs)*(Dist <= r_c), 
+            s_temp*0.5*(torch.cos(torch.tensor(np.pi, dtype = torch.float32)*\
+                                    (Dist-r_cs)/(r_c-r_cs)) + 1.), s_temp)
+  s_temp3 = torch.where( (Dist >= r_c), zeroDummy, s_temp2)
+
+  # we get the dummy zeroes
+  zeroDummy_scalar = torch.zeros_like(Dist)
+
+  s_ij = torch.where(mask, zeroDummy_scalar, s_temp3) 
+  DistInv = torch.where(mask, zeroDummy_scalar, DistInv) 
+
+  return (s_ij, (tempL*DistInv.unsqueeze(-1))*s_ij.unsqueeze(-1))
+
+
 
 # TODO: check that this work as intended
 @torch.jit.script
@@ -54,18 +142,14 @@ def gen_coordinates(pos : torch.Tensor,
   # of this function
   neighborListTemp = neighborList*(1 - mask.int())
 
-  zeroDummy = torch.zeros(n_snap, n_points, 
-                          max_num_neighs, dim, dtype=torch.float32)
-  # (n_snap, n_points, max_num_neighs, dim) 
-
-  zeroDummy_scalar = torch.zeros(n_snap, n_points, 
-                                 max_num_neighs, dtype=torch.float32)
-  # (n_snap, n_points, max_num_neighs)
-
   temp = pos.unsqueeze(-2).repeat(1, 1, neighborListTemp.shape[-1], 1)
   # (n_snap, n_points, max_num_neighs, dim)
 
-  temp2 = torch.gather(temp, 1, neighborListTemp.unsqueeze(-1).repeat(1,1,1,dim))
+  zeroDummy = torch.zeros_like(temp)
+  # (n_snap, n_points, max_num_neighs, dim) (we keep the same device)
+
+  temp2 = torch.gather(temp, 1, 
+                       neighborListTemp.unsqueeze(-1).repeat(1,1,1,dim))
   # (n_snap, n_points, max_num_neighs, dim) ? (not sure about the dimensions here)
 
   temp2Filtered = torch.where(mask.unsqueeze(-1).repeat(1,1,1,dim), 
@@ -81,6 +165,9 @@ def gen_coordinates(pos : torch.Tensor,
 
   # carefull of divisions by zero
   DistInv = 1./Dist
+
+  # we get the dummy zeroes
+  zeroDummy_scalar = torch.zeros_like(Dist)
 
   Dist = torch.where(mask, zeroDummy_scalar, Dist) 
   DistInv = torch.where(mask, zeroDummy_scalar, DistInv) 
@@ -115,7 +202,8 @@ class DenseChainNet(nn.Module):
       self.batch_norm = nn.ModuleList([nn.BatchNorm1d(out_f) 
                                  for out_f in sizes[1:]])
     else:
-      self.batch_norm = None
+      self.batch_norm = nn.ModuleList([torch.nn.Identity(out_f) 
+                                 for out_f in sizes[1:]])
 
     if with_weight_skip:
       self.weight_skip = nn.ParameterList(

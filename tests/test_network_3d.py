@@ -26,7 +26,7 @@ atom_types = [0, 1, 2]
 
 # number of particles
 n_parts = 3
-n_snaps = 10
+n_snaps = 100
 n_points = n_parts**3
 L = 1
 r_in =  L*np.random.rand(n_snaps, n_parts**3, 3)

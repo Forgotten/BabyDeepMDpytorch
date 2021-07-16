@@ -7,12 +7,12 @@ import sys
 sys.path.insert(1, '../src')
 from neighbor_list import comput_inter_list_type
 from utilities_3d import gen_coordinates
-from utilities_3d import smooth_cut_off
+from utilities_3d import smooth_cut_off, stable_inverse
 
 
 n_parts = 3
 
-r_in = np.linspace(0., 1., n_parts+1)[:-1]
+r_in = np.linspace(0., 1., n_parts+1)[:-1] + 0.5/n_parts
 x_in, y_in, z_in = np.meshgrid(r_in, r_in, r_in)
 
 r_in = np.concatenate([x_in.reshape((-1,1)), 
@@ -24,7 +24,7 @@ r_in = r_in.reshape((1, *r_in.shape))
 atom_type = []
 for k in range(n_parts):
     atom_type += [k]*n_parts**2
-atom_type = np.array(atom_type, dtype = np.int64)
+atom_type = np.array(atom_type, dtype = np.int64).reshape((1,-1))
 
 L = 1. 
 radious = 0.45
@@ -64,10 +64,31 @@ plt.show()
 r_cs = torch.tensor(1.5) # smooth cut-off
 r_c = torch.tensor(2.5)  # cut-off
 
-r_test = torch.tensor(np.linspace(0,3, 100), dtype=torch.float32)
+r_test = torch.tensor(np.linspace(0.1,3, 1000), dtype=torch.float32)
+r_test.requires_grad = True
 ans = smooth_cut_off(r_test, r_cs, r_c)
-plt.plot(r_test.numpy(), ans.numpy())
+(ds_dr_1D,) = torch.autograd.grad(-torch.sum(ans), 
+                                     r_test, create_graph=True, 
+                                     allow_unused=True)
+
+fig, axs = plt.subplots(2)
+# title
+fig.suptitle('Smooth cut-off and its derivative (computer by pytorch)')
+
+# plotting the function
+axs[0].plot(r_test.detach().numpy(), ans.detach().numpy())
+# plotting the derivative
+axs[1].plot(r_test.detach().numpy(), ds_dr_1D.detach().numpy())
+
 plt.show()
+
+
+## testing the stable inverse 
+
+inv_r_test = stable_inverse(r_test)
+
+plt.plot(r_test.detach().numpy(), inv_r_test.detach().numpy())
+
 
 # prepare for the gen_coordinates
 
@@ -76,7 +97,6 @@ inter_list_torch = torch.tensor(inter_list)
 L_torch = torch.tensor(L)
 
 r_in_torch.requires_grad = True
-
 
 
 # comput the generalized coordinated from the interaction list
@@ -91,4 +111,6 @@ ds_dr = torch.autograd.grad(-torch.sum(s_ij[0][0]),
 # apply the smooth cut-off
 s_ij = smooth_cut_off(s_ij, torch.tensor(radious/2), torch.tensor(radious) )
 r_ij = r_ij*s_ij.unsqueeze(-1)
+
+
 

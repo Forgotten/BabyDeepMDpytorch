@@ -22,12 +22,22 @@ fitting_dim = [64, 32, 16, 8]
 
 atom_types = [0, 1, 2]
 
+resnet = False
+with_weight_skip = False
+with_batch_norm = False
+act_fn = torch.relu
+
+
 module_dict = {}
 for i in range(len(atom_types)):
   for j in range(i+1):
     # we build such that j <= i
     module_dict[str(atom_types[j])+
-    			str(atom_types[i])] = DenseChainNet(descript_dim)  
+    			str(atom_types[i])] = DenseChainNet(descript_dim, 
+                                              act_fn,
+                                              resnet, 
+                                              with_weight_skip, 
+                                              with_batch_norm)
 
 embedding_nets_1 = nn.ModuleDict(module_dict)
 
@@ -46,7 +56,7 @@ r_in = r_in.reshape((1, *r_in.shape))
 atom_type = []
 for k in range(n_parts):
     atom_type += [k]*n_parts**2
-atom_type = np.array(atom_type, dtype = np.int64)
+atom_type = np.array(atom_type, dtype = np.int64).reshape((1,-1))
 
 L = 1. 
 radious = 0.45
