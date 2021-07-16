@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from utilities_3d import DenseChainNet
 from utilities_3d import gen_coordinates
+from utilities_3d import gen_coordinates_smooth
 from utilities_3d import smooth_cut_off, stable_inverse
 
 class DescriptorModule(torch.nn.Module):
@@ -47,8 +48,8 @@ class DescriptorModule(torch.nn.Module):
     self.embed_nets = nn.ModuleDict(module_dict)
 
     self.length = length
-    # self.descrip_dim    = torch.tensor(descrip_dim, dtype=torch.int64)
-    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int64)
+    # self.descrip_dim    = torch.tensor(descrip_dim, dtype=torch.int32)
+    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int32)
 
     # testing this with lists
     self.descrip_dim    = descrip_dim
@@ -69,8 +70,8 @@ class DescriptorModule(torch.nn.Module):
     self.r_c = torch.tensor(cut_offs[1])
 
     max_num_neighs_cum = np.zeros(max_num_neighs.shape[0] + 1, 
-                                  dtype = np.int64)
-    max_num_neighs_cum[1:] = np.cumsum(max_num_neighs).astype(np.int64)
+                                  dtype = np.int32)
+    max_num_neighs_cum[1:] = np.cumsum(max_num_neighs).astype(np.int32)
 
     self.total_num_neighs = max_num_neighs_cum[-1]
 
@@ -98,20 +99,22 @@ class DescriptorModule(torch.nn.Module):
     # assert n_snap == n_snap_neigh
     # assert n_points == n_points_neigh 
 
-    (s_ij, r_ij) = gen_coordinates(inputs, neigh_list, self.length)
-    # s_ij = (n_snpa, n_points, max_nums_neighs)
-    # r_ij = (n_snpa, n_points, max_nums_neighs, 3)
 
     # check if we are using a smooth cut-off if not 
     # 
     if self.with_smooth_cut_off:
-
       # computing the smooth cut-off 
+      (s_ij, r_ij) = gen_coordinates(inputs, neigh_list, self.length)
+      # s_ij = (n_snpa, n_points, max_nums_neighs)
+
       s_ij = smooth_cut_off(s_ij, self.r_cs, self.r_c)
       r_ij = r_ij*s_ij.unsqueeze(-1)
-      # todo: shall we add more fingerprints? 
 
     else: 
+
+      (s_ij, r_ij) = gen_coordinates(inputs, neigh_list, self.length)
+      # s_ij = (n_snpa, n_points, max_nums_neighs)
+      # r_ij = (n_snpa, n_points, max_nums_neighs, 3)
 
       # compute 1/r (this could be done in the gen_coordinates)
       s_ij = stable_inverse(s_ij) 
@@ -121,7 +124,8 @@ class DescriptorModule(torch.nn.Module):
     # embedding matrix 
     G = torch.zeros(n_snap, n_points, 
                     self.total_num_neighs, 
-                    self.embedding_dim, device=device_in)
+                    self.embedding_dim, 
+                    device=device_in)
 
         # we need to do a nested loop
         # the exterior loop will be on the type of atoms centered
@@ -130,12 +134,12 @@ class DescriptorModule(torch.nn.Module):
       # build a mask for the input types
       mask = (input_types == a_type)
       # this is the issue here.... 
-      idx_type = torch.nonzero(mask)
+      idx_type = torch.nonzero(mask[0,:]).reshape(-1)
       # (n_snap, num_atoms[a_type])
 
       # we extract all the s_ij corresponding to the 
       # 
-      s_ij_local = s_ij[:, idx_type[:,1], :]
+      s_ij_local = s_ij[:, idx_type, :]
       # (n_snap, number blah,  max_num_neighs_total)
 
       # this seems to be redundant now
@@ -164,7 +168,7 @@ class DescriptorModule(torch.nn.Module):
         # we assume the same ordering of the type of atoms in each 
         # batch THIS NEEDS TO BE FIXED!!!
         # storing the values in G
-        G[:, idx_type[:,1], id_start:id_end,:] = G_ij
+        G[:, idx_type, id_start:id_end,:] = G_ij
         # (n_snap, n_points, max_num_neighs_total, descript_dim )
 
     # concatenating 
@@ -174,7 +178,7 @@ class DescriptorModule(torch.nn.Module):
     G2 = G[:,:,:,:self.dim_sub_net]
     # (n_snap, n_points, total_num_neighs, dim_sub_net )
 
-    R = torch.matmul(torch.transpose(r_tilde_ij,2, 3), G2)
+    R = torch.matmul(torch.transpose(r_tilde_ij, 2, 3), G2)
     # (n_snap, n_points, 4, dim_sub_net)
 
     R1 = torch.matmul(r_tilde_ij, R)
@@ -227,8 +231,8 @@ class DescriptorModuleRadial(torch.nn.Module):
     self.embed_nets = nn.ModuleDict(module_dict)
 
     self.length = length
-    # self.descrip_dim    = torch.tensor(descrip_dim, dtype=torch.int64)
-    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int64)
+    # self.descrip_dim    = torch.tensor(descrip_dim, dtype=torch.int32)
+    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int32)
 
     # testing this with lists
     self.descrip_dim    = descrip_dim
@@ -248,8 +252,8 @@ class DescriptorModuleRadial(torch.nn.Module):
     self.r_c = torch.tensor(cut_offs[1])
 
     max_num_neighs_cum = np.zeros(max_num_neighs.shape[0] + 1, 
-                                  dtype = np.int64)
-    max_num_neighs_cum[1:] = np.cumsum(max_num_neighs).astype(np.int64)
+                                  dtype = np.int32)
+    max_num_neighs_cum[1:] = np.cumsum(max_num_neighs).astype(np.int32)
 
     self.total_num_neighs = max_num_neighs_cum[-1]
 
@@ -378,8 +382,8 @@ class DeepMDsimpleEnergyForces(torch.nn.Module):
 
 
     self.length = length
-    # self.descript_dim    = torch.tensor(descript_dim, dtype=torch.int64)
-    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int64)
+    # self.descript_dim    = torch.tensor(descript_dim, dtype=torch.int32)
+    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int32)
 
     # testing this with lists
     self.descript_dim   = descript_dim
@@ -476,8 +480,8 @@ class DeepMDradialEnergyForces(torch.nn.Module):
 
 
     self.length = length
-    # self.descript_dim    = torch.tensor(descript_dim, dtype=torch.int64)
-    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int64)
+    # self.descript_dim    = torch.tensor(descript_dim, dtype=torch.int32)
+    # self.atom_types     = torch.tensor(atom_types, dtype=torch.int32)
 
     # testing this with lists
     self.descript_dim   = descript_dim
