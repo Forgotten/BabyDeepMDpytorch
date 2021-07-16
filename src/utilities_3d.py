@@ -102,16 +102,14 @@ def gen_coordinates_smooth(pos : torch.Tensor,
   # carefull of divisions by zero
   DistInv = 1./Dist
 
-  # 1/r
-  s_temp = 1./DistInv
+  # we get the dummy zeroes
+  zeroDummy_scalar = torch.zeros_like(Dist)
+
   # 1.r*(0.5*cos(pi*(r - r_cs)/(r_c - r_cs) + 0.5)
   s_temp2 =  torch.where( (Dist >= r_cs)*(Dist <= r_c), 
             s_temp*0.5*(torch.cos(torch.tensor(np.pi, dtype = torch.float32)*\
-                                    (Dist-r_cs)/(r_c-r_cs)) + 1.), s_temp)
-  s_temp3 = torch.where( (Dist >= r_c), zeroDummy, s_temp2)
-
-  # we get the dummy zeroes
-  zeroDummy_scalar = torch.zeros_like(Dist)
+                                    (Dist-r_cs)/(r_c-r_cs)) + 1.), DistInv)
+  s_temp3 = torch.where( (Dist >= r_c), zeroDummy_scalar, s_temp2)
 
   s_ij = torch.where(mask, zeroDummy_scalar, s_temp3) 
   DistInv = torch.where(mask, zeroDummy_scalar, DistInv) 
