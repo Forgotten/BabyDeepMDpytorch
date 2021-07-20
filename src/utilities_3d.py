@@ -22,9 +22,9 @@ def smooth_cut_off(r:torch.Tensor, r_cs:torch.Tensor, r_c:torch.Tensor):
   # 1/r
   s_temp = 1./r_temp
   # 1.r*(0.5*cos(pi*(r - r_cs)/(r_c - r_cs) + 0.5)
-  s_temp2 =  torch.where( (r >= r_cs)*(r <= r_c), 
+  s_temp2 = torch.where( (r >= r_cs)*(r <= r_c), 
             s_temp*0.5*(torch.cos(torch.tensor(np.pi, dtype = torch.float32)*\
-                                    (r_temp-r_cs)/(r_c-r_cs)) + 1.), s_temp)
+                                 (r_temp-r_cs)/(r_c-r_cs)) + 1.), s_temp)
   s_temp3 = torch.where( (r >= r_c), zeroDummy, s_temp2)
 
   s_final = torch.where(mask, zeroDummy, s_temp3)
@@ -56,8 +56,8 @@ def stable_inverse(r:torch.Tensor):
 def gen_coordinates_smooth(pos : torch.Tensor, 
                           neighborList : torch.Tensor, 
                           L : torch.Tensor, 
-                          r_cs:torch.Tensor, 
-                          r_c:torch.Tensor):
+                          r_cs : torch.Tensor, 
+                          r_c : torch.Tensor):
   # we fuse the computation of the generalized coordinates 
   # with the application of the smooth cut-off, this should
   # allow us for better performance (we only apply the mask once)
@@ -94,6 +94,8 @@ def gen_coordinates_smooth(pos : torch.Tensor,
 
   temp = temp2Filtered - temp
   #(we are supposing that the super cell is a cube)
+  # TODO: this needs to be modified in the case of something
+  # different than a cube
   tempL = temp - L*torch.round(temp/L) 
   
   Dist = torch.sqrt(torch.sum(torch.square(tempL), dim = -1))
@@ -107,7 +109,7 @@ def gen_coordinates_smooth(pos : torch.Tensor,
 
   # 1.r*(0.5*cos(pi*(r - r_cs)/(r_c - r_cs) + 0.5)
   s_temp2 =  torch.where( (Dist >= r_cs)*(Dist <= r_c), 
-            s_temp*0.5*(torch.cos(torch.tensor(np.pi, dtype = torch.float32)*\
+            DistInv*0.5*(torch.cos(torch.tensor(np.pi, dtype = torch.float32)*\
                                     (Dist-r_cs)/(r_c-r_cs)) + 1.), DistInv)
   s_temp3 = torch.where( (Dist >= r_c), zeroDummy_scalar, s_temp2)
 
