@@ -31,11 +31,11 @@ n_val = 100
 length_cell = 1.0
 n_cells = 3
 n_points_cell = 2
-n_snaps = 1600 + n_val
+n_snaps = 3200 + n_val
 n_points = n_cells**3
 L = n_cells*length_cell
 
-min_delta = 0.4
+min_delta = 0.3
 
 radious = L/2
 
@@ -102,7 +102,8 @@ std = torch.tensor([1.0, 1.0], dtype = torch.float32)
 
 inter_list = comput_inter_list_type(pointsArray, 
                                     input_types_torch.numpy(), 
-                                    L, radious, max_num_neighs_type)
+                                    L, radious, 
+                                    max_num_neighs_type)
 
 inter_list_torch = torch.tensor(inter_list, dtype= torch.int64)
 
@@ -158,7 +159,9 @@ inter_list_cuda= r_in_torch[:2,:,:].to(device), \
                   input_types_torch[:2,:].to(device), \
                   inter_list_torch[:2,:,:].to(device)
 
-energyNN, forcesNN = DeepMD(r_in_cuda, input_types_cuda, inter_list_cuda)
+energyNN, forcesNN = DeepMD(r_in_cuda, 
+                            input_types_cuda, 
+                            inter_list_cuda)
 
 
 
@@ -187,7 +190,8 @@ optimizer = torch.optim.Adam(DeepMD.parameters(), lr=learningRate)
 
 # specidy scheduler
 exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                             step_size=lr_steps, gamma=gamma)
+                                             step_size=lr_steps,
+                                             gamma=gamma)
 
 
 # creating the data sets (we don't consider testing so far)
