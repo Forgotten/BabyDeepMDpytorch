@@ -18,7 +18,21 @@ from networks_3d import DeepMDsimpleEnergyForces
 from data_gen_3d import gen_data_per_3d_mixed
 
 
+import os
+
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
+nameScript = sys.argv[0].split('/')[-1]
+
+# we are going to give all the arguments using a Json file
+# nameJson = sys.argv[1]
+print("=================================================")
+# print("Executing " + nameScript + " following " + nameJson, flush = True)
+print("Executing " + nameScript, flush = True)
+print("=================================================")
+
 plot_bool = False
+normalization_bool = False
 
 np.random.seed(1234)
 # we check that the construction of the moduledict is 
@@ -36,7 +50,6 @@ n_points = n_cells**3
 L = n_cells*length_cell
 
 min_delta = 0.3
-
 radious = L/2
 
 
@@ -44,7 +57,7 @@ mu1 = 10.0
 mu2 = 5.0
 
 alpha1 = 1.0
-alpha2 = 2.0
+alpha2 = 0.0
 
 pointsArray,\
 potentialArray,\
@@ -53,6 +66,11 @@ forcesArray = gen_data_per_3d_mixed(n_cells, n_points_cell,
                                     n_snaps, min_delta, 
                                     L/n_cells, 
                                     alpha1, alpha2)
+
+print("Parameters")
+print("mu1 = %.1f\t mu2 = %.1f"% (mu1, mu2))
+print("alpha1 = %.1f\t alpha2 = %.1f"% (alpha1, alpha2))
+print("min delta = %.1f\t L = %.1f"%(min_delta, L))
 
 if plot_bool:
     fig = plt.figure()
@@ -75,10 +93,13 @@ if plot_bool:
 
 mean_pot, std_pot = potentialArray.mean(), potentialArray.std()
 
+
 print("Potential mean {:.6f}\t std {:.6f}".format(mean_pot, std_pot))
 
-# potentialArray = (potentialArray - mean_pot)/std_pot
-# forcesArray = forcesArray/std_pot
+if normalization_bool:
+    print("Normalizing the potential")
+    potentialArray = (potentialArray - mean_pot)/std_pot
+    forcesArray = forcesArray/std_pot
 
 # backwards compatibility with only one species of atom
 r_in_torch = torch.tensor(pointsArray, dtype=torch.float32)
@@ -150,9 +171,10 @@ else:
 
 
 print("Moving the model to %s"%device)
-
 DeepMD = DeepMD.to(device)
 
+
+print("Testing that the model was moved properly")
 r_in_cuda,\
 input_types_cuda,\
 inter_list_cuda= r_in_torch[:2,:,:].to(device), \
@@ -162,7 +184,6 @@ inter_list_cuda= r_in_torch[:2,:,:].to(device), \
 energyNN, forcesNN = DeepMD(r_in_cuda, 
                             input_types_cuda, 
                             inter_list_cuda)
-
 
 
 r_in_val,\
@@ -222,10 +243,10 @@ for ii, (batch_size, n_epochs) in enumerate(zip(batch_sizes_array,\
                                                   num_workers=4)
 
     ## these parameters need to be adjusted 
-    weightE_init = 1.
-    weightE_final = 0.0001
+    weightE_init = 0.02
+    weightE_final = 8.0
      
-    weightF_init = 0.0001
+    weightF_init = 100.0
     weightF_final = 1.
 
     print("Starting the training loop")
