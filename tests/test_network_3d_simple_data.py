@@ -30,7 +30,7 @@ n_val = 100
 # number of particles
 length_cell = 1.0
 n_cells = 3
-n_points_cell = 1
+n_points_cell = 2
 n_snaps = 1600 + n_val
 n_points = n_cells**3
 L = n_cells*length_cell
@@ -93,7 +93,7 @@ L_torch = torch.tensor(L, dtype = torch.float32)
 descript_dim = [1, 2, 4, 8, 16, 32]
 fitting_dim = [64, 64, 64, 64]
 
-max_num_neighs_type = np.array([27])
+max_num_neighs_type = np.array([54])
 # only one type
 a_types = [0]
 
