@@ -227,53 +227,6 @@ def gen_data_exp_per_3d_charge(Ncells=10, Np=1, Nsamples=10,
     return pointsArray, chargeArray, potentialArray, forceArray
 
 
-
-
-# TODO: generate new data/ in this case inside each 
-
-def potential(x,y, mu):
-    return -np.exp(-mu*np.sqrt(np.sum(np.square(y - x), axis = -1)))
-
-
-def potential_diff(diff, mu):
-
-    return -np.exp(-mu*np.sqrt(np.sum(np.square(diff), axis = -1)))
-
-
-def forces(x,y, mu):
-
-    return -mu*(y - x)/(np.finfo(float).eps+np.sqrt(np.sum(np.square(y - x), \
-                                                           axis = -1, keepdims = True)))\
-           *np.exp(-mu*np.sqrt(np.sum(np.square(y - x), axis = -1, keepdims = True)))
-
-
-
-def forces_diff(diff, mu):
-
-    return -mu*(diff)/(np.finfo(float).eps+np.sqrt(np.sum(np.square(diff), \
-                                        axis = -1, keepdims = True)))\
-           *np.exp(-mu*np.sqrt(np.sum(np.square(diff), \
-                                      axis = -1, keepdims = True)))
-
-def potential_per3D(x,y, mu, L):
-    diff = y - x
-    diff_per = diff - L*np.round(diff/L)
-    return    potential_diff(diff_per, mu)
-
-
-def forces_per3D(x,y, mu, L):
-    diff = y - x
-    diff_per = diff - L*np.round(diff/L)
-    return    forces_diff(diff_per, mu)
-
-def gaussian3D(x, y, z, center, tau):
-
-    return (1/np.sqrt(2*np.pi*tau)**3)*\
-           np.exp( -0.5*(  np.square(x - center[0]) \
-                         + np.square(y - center[1]) \
-                         + np.square(z - center[2]))/tau**2 )
-
-
 def potential_exp_per_3d_charge(points, charge, L, mu=10.0):
     ##points: (2*Ncenter,3) position of the points 
     ##charge: (2*Ncenter,1)
