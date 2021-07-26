@@ -31,6 +31,7 @@ def smooth_cut_off(r:torch.Tensor, r_cs:torch.Tensor, r_c:torch.Tensor):
 
   return s_final
 
+
 @torch.jit.script
 def stable_inverse(r:torch.Tensor):
   #  todo: function to compute 1/r 
@@ -211,18 +212,20 @@ class DenseChainNet(nn.Module):
               for out_f in sizes[1:]])
     
     else:
-        self.weight_skip = None
+        self.weight_skip = [torch.ones(out_f) for out_f in sizes[1:]]
   
 
   def forward(self, x):
-    for i, layer in enumerate(self.layers):
+    for i, (layer, batch, weight) in enumerate(zip(self.layers, 
+                                                   self.batch_norm,
+                                                   self.weight_skip)):
       
       # apply the dense network
       tmp = layer(x)
 
       # adding the batch normalization
       if self.with_batch_norm:
-        tmp = self.batch_norm[i](tmp)
+        tmp = batch(tmp)
 
       # apply the activation function
       if i < len(self.layers) - 1:
@@ -230,9 +233,12 @@ class DenseChainNet(nn.Module):
 
       # check if we are using ResNet 
       if self.use_resnet and layer.in_features == layer.out_features:
+        
         if self.with_weight_skip:
-          tmp = tmp * self.weight_skip[i]
+          tmp = tmp * weight
+
         x = x + tmp
+
       else:
         x = tmp
     return x
