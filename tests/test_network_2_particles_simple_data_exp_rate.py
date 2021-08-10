@@ -29,7 +29,7 @@ n_val = 100
 n_parts = 1
 n_points_cell = 2
 n_snaps = 800 + n_val
-n_points = n_parts**3
+n_points = (n_parts**3)*n_points_cell
 L = 1.
 radious = 1.0
 
@@ -107,11 +107,11 @@ DeepMD = DeepMDsimpleEnergyForces(n_points, #
                max_num_neighs_type, # this needs to be a tensor too
                descript_dim,
                fitting_dim,
-               True,
+               False,
                [r_cs, r_c],
                4,
                torch.nn.GELU(), # torch.selu/ nn.SiLU()/ torch.tanh / torch.relu / torch.nn.GELU()
-               True, 
+               False, 
                False, # batch normalization at each layer
                True, # smooth-cut off
                av,
@@ -191,10 +191,10 @@ dataloaderTrain = torch.utils.data.DataLoader(datasetTrain,
 
 Nepochs = 1000
 ## these parameters need to be adjusted 
-weightE_init = 0.02
+weightE_init = 0.2
 weightE_final = 8
  
-weightF_init = 1000
+weightF_init = 100
 weightF_final = 1
 
 print("Starting the training loop")
@@ -204,12 +204,6 @@ for epoch in range(1, Nepochs+1):
     DeepMD.train()
     # monitoring time elapsed
     start = time.time()
-
-    # this shouldn't be linear, it should be exponential
-    # weights_rate = epoch/Nepochs
-    # weightE = weightE_init*(1-weights_rate) + weightE_final*weights_rate
-    # weightF = weightF_init*(1-weights_rate) + weightF_final*weights_rate
-
 
     rate_E = np.power(weightE_final/weightE_init, 1/Nepochs)
     rate_F = np.power(weightF_final/weightF_init, 1/Nepochs) 
